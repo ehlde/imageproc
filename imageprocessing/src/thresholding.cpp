@@ -49,17 +49,6 @@ cv::Mat adaptive_thresholding(const cv::Mat& img)
       cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
   cv::morphologyEx(result, result, cv::MORPH_CLOSE, kernel);
 
-  // Global thresholding.
-  auto global = cv::Mat{};
-  const auto threshold = cv::threshold(img, global, 0, 255, cv::THRESH_OTSU);
-
-  // Invert global threshold.
-  cv::bitwise_not(global, global);
-
-  cv::imshow("Original", img);
-  cv::imshow("Global Thresholding", global);
-  cv::imshow("Adaptive Thresholding", result);
-  cv::waitKey(0);
   return result;
 }
 }  // namespace thresholding

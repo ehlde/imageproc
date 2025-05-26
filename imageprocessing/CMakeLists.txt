@@ -7,6 +7,7 @@ set(SRC
   src/contrasting.cpp
   src/thresholding.cpp
   src/highlights.cpp
+  src/reflection_removal.cpp
 )
 
 add_library(imageprocessing STATIC
