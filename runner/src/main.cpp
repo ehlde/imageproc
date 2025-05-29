@@ -191,14 +191,27 @@ int main(const int argc, const char* argv[])
   }
 
   const auto images = loadImages(files);
-  const std::vector<cv::Point2f> points{cv::Point2f(93, 23),
-                                        cv::Point2f(119, 49),
-                                        cv::Point2f(123, 54),
-                                        cv::Point2f(94, 34)};
-  // perform_reflection_removal(images, points);
-  for (const auto& image : images)
+  // const std::vector<cv::Point2f> points{cv::Point2f(93, 23),
+  //                                       cv::Point2f(119, 49),
+  //                                       cv::Point2f(123, 54),
+  //                                       cv::Point2f(94, 34)};
+  // // perform_reflection_removal(images, points);
+  // for (const auto& image : images)
+  // {
+  //   cvInpainting(image);
+  // }
+
+  const auto result = performThresholding(images);
+  for (auto idx = 0; idx < result.size(); ++idx)
   {
-    cvInpainting(image);
+    const auto& image = result[idx];
+    const auto file_name = std::filesystem::path(files[idx]).filename();
+    cv::imshow(file_name.string(), image);
+    if (!result.empty())
+    {
+      cv::imshow("Thresholded Image", result[0]);
+    }
+    cv::waitKey(0);
   }
 
   return 0;
