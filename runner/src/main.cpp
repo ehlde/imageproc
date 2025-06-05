@@ -4,6 +4,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/photo.hpp>
+#include <opencv2/videoio.hpp>
 #include <vector>
 
 #include "imageprocessing/contrasting.hpp"
@@ -13,8 +14,8 @@
 
 using Images = std::vector<cv::Mat>;
 
-std::vector<std::string> get_file_paths(const std::string& folder,
-                                        const std::string& extension)
+std::vector<std::string> getFilePaths(const std::string& folder,
+                                      const std::string& extension)
 {
   std::vector<std::string> file_paths;
   for (const auto& entry : std::filesystem::directory_iterator(folder))
@@ -44,12 +45,42 @@ Images loadImages(const std::vector<std::string>& file_paths)
   return images;
 }
 
+Images loadVideo(const std::string& file_path, const int frame_count = 0)
+{
+  Images images;
+  cv::VideoCapture cap(file_path);
+  if (!cap.isOpened())
+  {
+    std::cerr << "Error: Could not open video file\n";
+    return {};
+  }
+
+  cv::Mat frame;
+  while (cap.read(frame) && images.size() < frame_count)
+  {
+    // Convert to grayscale if the frame is not empty
+    if (frame.channels() > 1)
+    {
+      cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+    }
+    // If the frame is empty, break the loop
+    if (frame.empty())
+    {
+      break;
+    }
+    // Push the frame to the images vector
+    images.push_back(frame);
+  }
+  return images;
+}
+
 Images performThresholding(const Images& images)
 {
   Images results{};
   for (const auto& image : images)
   {
-    results.push_back(thresholding::adaptive_thresholding(image));
+    results.push_back(thresholding::adaptive_thresholding(
+        image, thresholding::ThresholdType::OPENCV_GAUSSIAN));
   }
   return results;
 }
@@ -176,13 +207,13 @@ int main(const int argc, const char* argv[])
     return 1;
   }
 
-  const auto folder_path = std::string(argv[1]);
+  const auto folderPath = std::string(argv[1]);
   const auto extension = std::string(argv[2]);
 
-  std::vector<std::string> files{};
+  auto files = std::vector<std::string>{};
   try
   {
-    files = get_file_paths(folder_path, extension);
+    files = getFilePaths(folderPath, extension);
   }
   catch (const std::filesystem::filesystem_error& e)
   {
@@ -191,27 +222,20 @@ int main(const int argc, const char* argv[])
   }
 
   const auto images = loadImages(files);
-  // const std::vector<cv::Point2f> points{cv::Point2f(93, 23),
-  //                                       cv::Point2f(119, 49),
-  //                                       cv::Point2f(123, 54),
-  //                                       cv::Point2f(94, 34)};
-  // // perform_reflection_removal(images, points);
-  // for (const auto& image : images)
-  // {
-  //   cvInpainting(image);
-  // }
+  // const auto images = loadVideo(files[0], 10);
 
   const auto result = performThresholding(images);
   for (auto idx = 0; idx < result.size(); ++idx)
   {
-    const auto& image = result[idx];
-    const auto file_name = std::filesystem::path(files[idx]).filename();
-    cv::imshow(file_name.string(), image);
-    if (!result.empty())
+    if (!result.empty() && idx < std::ssize(images))
     {
-      cv::imshow("Thresholded Image", result[0]);
+      // Combine original and thresholded images side by side.
+      auto combined = cv::Mat{};
+      cv::hconcat(images[idx], result[idx], combined);
+
+      cv::imshow("Original | Thresholded", combined);
+      cv::waitKey(0);
     }
-    cv::waitKey(0);
   }
 
   return 0;

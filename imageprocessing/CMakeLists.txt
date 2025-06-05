@@ -1,6 +1,7 @@
 find_package(OpenCV REQUIRED)
-list(APPEND CMAKE_MODULE_PATH ${IPP_LIB_DIR})
-find_package(IPP REQUIRED)
+include_directories(${IPP_ROOT}/linux/include)
+link_directories(${IPP_ROOT}/lib)
+
 
 set(SRC
   src/gemm_cv.cpp
@@ -24,5 +25,4 @@ target_include_directories(imageprocessing
 
 target_link_libraries(imageprocessing PRIVATE
   ${OpenCV_LIBS}
-  IPP::ippcore
 )

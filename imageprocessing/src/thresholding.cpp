@@ -95,8 +95,7 @@ cv::Mat adaptive_thresholding(const cv::Mat& img, ThresholdType type)
 
     case ThresholdType::OPENCV_GAUSSIAN:
       // OpenCV's adaptive thresholding with Gaussian method.
-      const auto subtractionFactor =
-          std::clamp(calculateOptimalC(img), 10.0, 20.0);
+      const auto subtractionFactor = calculateOptimalC(img);
       cv::adaptiveThreshold(img,
                             result,
                             255,
