@@ -1,4 +1,5 @@
 find_package(OpenCV REQUIRED)
+find_package(IPP REQUIRED)
 include_directories(${IPP_ROOT}/linux/include)
 link_directories(${IPP_ROOT}/lib)
 
@@ -9,6 +10,7 @@ set(SRC
   src/thresholding.cpp
   src/highlights.cpp
   src/reflection_removal.cpp
+  src/integral_image.cpp
 )
 
 add_library(imageprocessing STATIC

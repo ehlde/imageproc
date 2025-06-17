@@ -1,3 +1,5 @@
+#include <benchmark/benchmark.h>
+
 #include <filesystem>
 #include <iostream>
 #include <opencv2/core.hpp>
@@ -13,7 +15,12 @@
 #include "imageprocessing/thresholding.hpp"
 
 using Images = std::vector<cv::Mat>;
+using ImagePairs = std::vector<std::pair<cv::Mat, cv::Mat>>;
 
+// #define BENCHMARK_ENABLED
+
+namespace
+{
 std::vector<std::string> getFilePaths(const std::string& folder,
                                       const std::string& extension)
 {
@@ -74,13 +81,18 @@ Images loadVideo(const std::string& file_path, const int frame_count = 0)
   return images;
 }
 
-Images performThresholding(const Images& images)
+ImagePairs performThresholding(const Images& images)
 {
-  Images results{};
+  ImagePairs results{};
+  constexpr auto BLOCK_SIZE = 15;
+  constexpr auto K = -0.17;
   for (const auto& image : images)
   {
-    results.push_back(thresholding::adaptive_thresholding(
-        image, thresholding::ThresholdType::OPENCV_GAUSSIAN));
+    const auto naive = thresholding::adaptiveThresholding(
+        image, thresholding::ThresholdType::NIBLACK_NAIVE);
+    const auto integral = thresholding::adaptiveThresholding(
+        image, thresholding::ThresholdType::NIBLACK_INTEGRAL);
+    results.push_back({naive, integral});
   }
   return results;
 }
@@ -199,7 +211,36 @@ cv::Mat cvInpainting(const cv::Mat& src)
   return dst;
 }
 
-int main(const int argc, const char* argv[])
+static void BM_NiblackNaive(benchmark::State& state,
+                            const cv::Mat& paddedImg,
+                            const int halfBlockSize,
+                            const double kValue,
+                            const bool invert)
+{
+  // Benchmark NiblackNaive function.
+  for (auto _ : state)
+  {
+    benchmark::DoNotOptimize(
+        thresholding::niblackNaive(paddedImg, halfBlockSize, kValue, invert));
+  }
+}
+
+static void BM_NiblackIntegral(benchmark::State& state,
+                               const cv::Mat& paddedImg,
+                               const int halfBlockSize,
+                               const double kValue,
+                               const bool invert)
+{
+  // Benchmark NiblackIntegral function.
+  for (auto _ : state)
+  {
+    benchmark::DoNotOptimize(thresholding::niblackIntegral(
+        paddedImg, halfBlockSize, kValue, invert));
+  }
+}
+}  // namespace
+
+int main(int argc, char** argv)
 {
   if (argc != 3)
   {
@@ -225,18 +266,54 @@ int main(const int argc, const char* argv[])
   // const auto images = loadVideo(files[0], 10);
 
   const auto result = performThresholding(images);
-  for (auto idx = 0; idx < result.size(); ++idx)
+  for (const auto& [naive, integral] : result)
   {
-    if (!result.empty() && idx < std::ssize(images))
-    {
-      // Combine original and thresholded images side by side.
-      auto combined = cv::Mat{};
-      cv::hconcat(images[idx], result[idx], combined);
-
-      cv::imshow("Original | Thresholded", combined);
-      cv::waitKey(0);
-    }
+    assert(!naive.empty() && !integral.empty() &&
+           naive.size() == integral.size());
+    auto combined = cv::Mat();
+    cv::hconcat(naive, integral, combined);
+    cv::imshow("Naive | Integral", combined);
+    cv::waitKey(0);
   }
 
+#ifdef BENCHMARK_ENABLED
+  // BENCHMARKING
+  benchmark::Initialize(&argc, argv);
+  const auto& img = images[0];
+
+  constexpr auto DEFAULT_INVERT = true;
+  const auto blockHeight = img.rows / 4;
+  const auto halfBlockSize =
+      blockHeight % 2 == 0 ? (blockHeight - 1) / 2 : blockHeight / 2;
+  const auto BORDER_REFLECT_VAL = halfBlockSize;
+
+  auto paddedImg = cv::Mat(img.rows + 2 * BORDER_REFLECT_VAL,
+                           img.cols + 2 * BORDER_REFLECT_VAL,
+                           CV_8U);
+  cv::copyMakeBorder(img,
+                     paddedImg,
+                     BORDER_REFLECT_VAL,
+                     BORDER_REFLECT_VAL,
+                     BORDER_REFLECT_VAL,
+                     BORDER_REFLECT_VAL,
+                     cv::BORDER_REFLECT_101);
+
+  // Register benchmarks with arguments.
+  benchmark::RegisterBenchmark("BM_NiblackNaive",
+                               BM_NiblackNaive,
+                               paddedImg,
+                               halfBlockSize,
+                               thresholding::NIBLACK_K,
+                               DEFAULT_INVERT);
+  benchmark::RegisterBenchmark("BM_NiblackIntegral",
+                               BM_NiblackIntegral,
+                               paddedImg,
+                               halfBlockSize,
+                               thresholding::NIBLACK_K,
+                               DEFAULT_INVERT);
+
+  benchmark::RunSpecifiedBenchmarks();
+  benchmark::Shutdown();
+#endif
   return 0;
 }

@@ -1,18 +1,31 @@
 #pragma once
 
-#include <opencv4/opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
 
 namespace thresholding
 {
-constexpr int MIN_VALUE_U8 = 0;
-constexpr auto MAX_VALUE_U8 = 255;
+constexpr auto MIN_VALUE_U8 = 0U;
+constexpr auto MAX_VALUE_U8 = 255U;
+constexpr auto NIBLACK_K = -0.17;
+
 enum class ThresholdType : int
 {
   OPENCV_GAUSSIAN = 0,
   NIBLACK_NAIVE,
-  NIBLACK_INTEGRAL_IMG,
+  NIBLACK_INTEGRAL,
 };
 
-cv::Mat adaptive_thresholding(
-    const cv::Mat& img, ThresholdType type = ThresholdType::OPENCV_GAUSSIAN);
+cv::Mat adaptiveThresholding(
+    const cv::Mat& img,
+    const ThresholdType type = ThresholdType::OPENCV_GAUSSIAN);
+
+cv::Mat niblackNaive(const cv::Mat& paddedImg,
+                     const int blockSize,
+                     const double k,
+                     const bool invert = false);
+
+cv::Mat niblackIntegral(const cv::Mat& paddedImg,
+                        const int blockSize,
+                        const double k,
+                        const bool invert = false);
 }  // namespace thresholding

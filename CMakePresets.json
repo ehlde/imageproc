@@ -7,51 +7,64 @@
   },
   "configurePresets": [
     {
-      "name": "ninja-multi-config-clang-debug",
-      "displayName": "Ninja Multi-Config (Clang, Debug)",
+      "name": "ninja-multi-config-clang",
+      "displayName": "Ninja Multi-Config",
       "generator": "Ninja Multi-Config",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_C_COMPILER": "clang",
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_STANDARD": "23",
         "IPP_ROOT": "/opt/intel/oneapi/2025.1",
-        "OpenCV_DIR": "/usr/local/opencv/build"
+        "OpenCV_DIR": "/usr/local/opencv/build",
+        "CMAKE_GENERATOR": "Ninja Multi-Config"
       }
     },
     {
-      "name": "ninja-multi-config-clang-release",
-      "displayName": "Ninja Multi-Config (Clang, Release)",
-      "generator": "Ninja Multi-Config",
+      "name": "GCC",
+      "displayName": "Debug GCC Ninja Multi-Config",
+      "description": "Using compilers: C = /usr/bin/gcc, CXX = /usr/bin/g++",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}",
+        "CMAKE_C_COMPILER": "/usr/bin/gcc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+        "CMAKE_BUILD_TYPE": "Debug",
         "IPP_ROOT": "/opt/intel/oneapi/2025.1",
-        "OpenCV_DIR": "/usr/local/opencv/build"
+        "OpenCV_DIR": "/usr/local/opencv/build",
+        "CMAKE_GENERATOR": "Ninja Multi-Config"
       }
     }
   ],
   "buildPresets": [
     {
       "name": "debug",
-      "configurePreset": "ninja-multi-config-clang-debug",
+      "configurePreset": "ninja-multi-config-clang",
       "configuration": "Debug",
       "environment": {
         "SHELL": "/bin/bash",
-        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh"
+        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",
+        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
       }
     },
     {
       "name": "release",
-      "configurePreset": "ninja-multi-config-clang-release",
+      "configurePreset": "ninja-multi-config-clang",
       "configuration": "Release",
       "environment": {
         "SHELL": "/bin/bash",
-        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh"
+        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",
+        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+      }
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "GCC",
+      "configuration": "Debug",
+      "environment": {
+        "SHELL": "/bin/bash",
+        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",
+        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
       }
     }
   ]
