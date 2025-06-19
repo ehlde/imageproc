@@ -137,49 +137,12 @@ cv::Mat adaptiveThresholding(const cv::Mat& img, const ThresholdType type)
   const auto BORDER_REFLECT_VAL = halfBlockSize;
 
   // Create padded image.
-  auto paddedImg = cv::Mat(img.rows + 2 * BORDER_REFLECT_VAL,
-                           img.cols + 2 * BORDER_REFLECT_VAL,
-                           CV_8U);
-  cv::copyMakeBorder(img,
-                     paddedImg,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     cv::BORDER_REFLECT_101);
-
-  auto result = cv::Mat{};
   switch (type)
   {
     case ThresholdType::NIBLACK_NAIVE:
-      // Niblack's method with naive implementation.
-      result = niblackNaive(paddedImg, halfBlockSize, NIBLACK_K, true);
-      break;
-
     case ThresholdType::NIBLACK_INTEGRAL:
-      // Niblack's method with integral image.
-      result = niblackIntegral(paddedImg, halfBlockSize, NIBLACK_K, true);
-      break;
-
     case ThresholdType::OPENCV_GAUSSIAN:
-      // OpenCV's adaptive thresholding with Gaussian method.
-      const auto subtractionFactor = calculateOptimalC(img);
-      cv::adaptiveThreshold(
-          paddedImg,
-          result,
-          thresholding::MAX_VALUE_U8,
-          cv::ADAPTIVE_THRESH_GAUSSIAN_C,
-          cv::THRESH_BINARY_INV,
-          blockHeight % 2 == 0 ? blockHeight - 1 : blockHeight,
-          subtractionFactor);
       break;
   }
-
-  // Perform morphological closing to remove noise.
-  const auto kernel =
-      cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
-  cv::morphologyEx(result, result, cv::MORPH_CLOSE, kernel);
-
-  return result;
 }
 }  // namespace thresholding

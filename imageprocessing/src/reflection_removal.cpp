@@ -55,8 +55,9 @@ HighlightMask getHighlightsAndCenters(const cv::Mat& img)
   return {highlights, contourCenters};
 }
 
-cv::Mat remove_reflections_from_central_ellipse(
-    const cv::Mat& img, const cv::Point2f& pointInEllipse)
+auto removeReflectionsFromCentralEllipse(const cv::Mat& img,
+                                         const cv::Point2f& pointInEllipse)
+    -> cv::Mat
 {
   auto denoised = cv::Mat{};
   cv::fastNlMeansDenoising(img, denoised, 10.0f, 7, 21);
@@ -72,14 +73,10 @@ cv::Mat remove_reflections_from_central_ellipse(
     cv::circle(blurred, center, 1, cv::Scalar(1), -1);
   }
 
-  // IMSHOW
   // Get contours of highlights.
 
   cv::imshow("Input", img);
-  // cv::imshow("Denoised", denoised);
   cv::imshow("Blurred", blurred);
-  // cv::imshow("Bilateral", bilateral);
-  // cv::imshow("Highlights", highlights);
   cv::imshow("Edges", edges);
   cv::waitKey(0);
   return cv::Mat();

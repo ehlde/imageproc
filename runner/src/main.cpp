@@ -21,25 +21,25 @@ using ImagePairs = std::vector<std::pair<cv::Mat, cv::Mat>>;
 
 namespace
 {
-std::vector<std::string> getFilePaths(const std::string& folder,
-                                      const std::string& extension)
+auto getFilePaths(const std::string& folderPath, const std::string& extension)
+    -> std::vector<std::string>
 {
-  std::vector<std::string> file_paths;
-  for (const auto& entry : std::filesystem::directory_iterator(folder))
+  auto filePaths = std::vector<std::string>{};
+  for (const auto& entry : std::filesystem::directory_iterator(folderPath))
   {
     const auto& path = entry.path();
     if (path.extension() == extension)
     {
-      file_paths.push_back(path.string());
+      filePaths.push_back(path.string());
     }
   }
-  return file_paths;
+  return filePaths;
 }
 
-Images loadImages(const std::vector<std::string>& file_paths)
+auto loadImages(const std::vector<std::string>& filePaths) -> Images
 {
-  Images images;
-  for (const auto& file : file_paths)
+  auto images = Images{};
+  for (const auto& file : filePaths)
   {
     const auto src = cv::imread(file, cv::IMREAD_GRAYSCALE);
     if (src.empty())
@@ -52,38 +52,35 @@ Images loadImages(const std::vector<std::string>& file_paths)
   return images;
 }
 
-Images loadVideo(const std::string& file_path, const int frame_count = 0)
+auto loadVideo(const std::string& filePath, const int frameCount = 0) -> Images
 {
-  Images images;
-  cv::VideoCapture cap(file_path);
+  auto images = Images{};
+  cv::VideoCapture cap(filePath);
   if (!cap.isOpened())
   {
     std::cerr << "Error: Could not open video file\n";
     return {};
   }
 
-  cv::Mat frame;
-  while (cap.read(frame) && images.size() < frame_count)
+  auto frame = cv::Mat{};
+  while (cap.read(frame) && images.size() < frameCount)
   {
-    // Convert to grayscale if the frame is not empty
     if (frame.channels() > 1)
     {
       cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
     }
-    // If the frame is empty, break the loop
     if (frame.empty())
     {
       break;
     }
-    // Push the frame to the images vector
     images.push_back(frame);
   }
   return images;
 }
 
-ImagePairs performThresholding(const Images& images)
+auto performThresholding(const Images& images) -> ImagePairs
 {
-  ImagePairs results{};
+  auto results = ImagePairs{};
   constexpr auto BLOCK_SIZE = 15;
   constexpr auto K = -0.17;
   for (const auto& image : images)
@@ -97,9 +94,9 @@ ImagePairs performThresholding(const Images& images)
   return results;
 }
 
-void performAutoContrast(std::vector<std::string>& file_paths)
+auto performAutoContrast(std::vector<std::string>& filePaths) -> void
 {
-  for (const auto& file : file_paths)
+  for (const auto& file : filePaths)
   {
     const auto src = cv::imread(file, cv::IMREAD_GRAYSCALE);
     if (src.empty())
