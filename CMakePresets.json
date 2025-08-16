@@ -15,9 +15,10 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_STANDARD": "23",
-        "IPP_ROOT": "/opt/intel/oneapi/2025.1",
+        "IPP_ROOT": "/opt/intel/oneapi/2025.2",
         "OpenCV_DIR": "/usr/local/opencv/build",
-        "CMAKE_GENERATOR": "Ninja Multi-Config"
+        "CMAKE_GENERATOR": "Ninja Multi-Config",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native"
       }
     },
     {
@@ -30,9 +31,25 @@
         "CMAKE_C_COMPILER": "/usr/bin/gcc",
         "CMAKE_CXX_COMPILER": "/usr/bin/g++",
         "CMAKE_BUILD_TYPE": "Debug",
-        "IPP_ROOT": "/opt/intel/oneapi/2025.1",
+        "IPP_ROOT": "/opt/intel/oneapi/2025.2",
         "OpenCV_DIR": "/usr/local/opencv/build",
         "CMAKE_GENERATOR": "Ninja Multi-Config"
+      }
+    },
+    {
+      "name": "debug-simd",
+      "displayName": "Debug with SIMD",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_STANDARD": "23",
+        "IPP_ROOT": "/opt/intel/oneapi/2025.2",
+        "OpenCV_DIR": "/usr/local/opencv/build",
+        "CMAKE_GENERATOR": "Ninja Multi-Config",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g -march=native"
       }
     }
   ],
@@ -61,6 +78,16 @@
       "name": "gcc-debug",
       "configurePreset": "GCC",
       "configuration": "Debug",
+      "environment": {
+        "SHELL": "/bin/bash",
+        "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",
+        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+      }
+    },
+    {
+      "name": "debug-simd",
+      "configurePreset": "debug-simd",
+      "configuration": "RelWithDebInfo",
       "environment": {
         "SHELL": "/bin/bash",
         "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",

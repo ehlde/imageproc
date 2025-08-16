@@ -26,4 +26,20 @@ cv::Mat detectHighlights(const cv::Mat& src)
 
   return mask;
 }
+
+cv::Mat detectHighlightsTopHat(const cv::Mat& img)
+{
+  // Apply top-hat transform.
+  auto tophat = cv::Mat{};
+  cv::morphologyEx(img,
+                   tophat,
+                   cv::MORPH_TOPHAT,
+                   cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 15)));
+
+  // Threshold to get binary mask.
+  auto mask = cv::Mat{};
+  cv::threshold(tophat, mask, 255, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+  return mask;
+}
 }  // namespace highlights

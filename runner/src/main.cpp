@@ -124,11 +124,7 @@ void perform_reflection_removal(const Images& images,
     const auto& point = points[i];
 
     const auto result = imageprocessing::reflection_removal::
-        remove_reflections_from_central_ellipse(image, point);
-
-    // cv::imshow("Input", image);
-    // cv::imshow("Result", result);
-    // cv::waitKey(0);
+        removeReflectionsFromCentralEllipse(image, point);
   }
 }
 
@@ -235,6 +231,8 @@ static void BM_NiblackIntegral(benchmark::State& state,
         paddedImg, halfBlockSize, kValue, invert));
   }
 }
+
+void performAdaptiveThresholding(const Images& images) {}
 }  // namespace
 
 int main(int argc, char** argv)
@@ -265,12 +263,14 @@ int main(int argc, char** argv)
   const auto result = performThresholding(images);
   for (const auto& [naive, integral] : result)
   {
+#ifndef BENCHMARK_ENABLED
     assert(!naive.empty() && !integral.empty() &&
            naive.size() == integral.size());
     auto combined = cv::Mat();
     cv::hconcat(naive, integral, combined);
     cv::imshow("Naive | Integral", combined);
     cv::waitKey(0);
+#endif
   }
 
 #ifdef BENCHMARK_ENABLED

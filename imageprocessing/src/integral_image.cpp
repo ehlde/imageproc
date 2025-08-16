@@ -1,4 +1,6 @@
 
+#include <immintrin.h>
+
 #include <cassert>
 #include <imageprocessing/integral_image.hpp>
 #include <opencv2/core.hpp>
@@ -58,5 +60,38 @@ std::pair<cv::Mat, cv::Mat> integralImageTwoOrders(const cv::Mat& img)
   }
 
   return {integralImg, sqrIntegralImg};
+}
+
+std::pair<cv::Mat, cv::Mat> imageprocessing::integralImageTwoOrders_SIMD(
+    const cv::Mat& img)
+{
+  assert(img.type() == CV_8U &&
+         "Input image must be of type CV_8U (single channel, 8-bit unsigned "
+         "integer).");
+  cv::Mat integralImg = cv::Mat::zeros(img.size(), CV_32S);
+  cv::Mat sqrIntegralImg = cv::Mat::zeros(img.size(), CV_32S);
+
+  // Create padded image with an additional row and column of zeros.
+  // This is necessary to avoid boundary checks during the integral image.
+  cv::Mat paddedImg = cv::Mat::zeros(img.rows + 1, img.cols + 1, CV_8U);
+  img.copyTo(paddedImg(cv::Rect(1, 1, img.cols, img.rows)));
+
+  // TODO
+  constexpr auto VEC_SIZE = 4;
+  for (int y = 1; y < paddedImg.rows; y += VEC_SIZE)
+  {
+    for (int x = 1; x < paddedImg.cols; x += VEC_SIZE)
+    {
+      // I(x,y) = I(x-1,y) + I(x,y-1) - I(x-1,y-1) + img(x,y)
+
+      // Calculate the sum of squared pixels in the rectangle from (0,0) to
+      // (y,x).
+      const auto sqrSum =
+          paddedImg.at<uchar>(y, x) * paddedImg.at<uchar>(y, x) +
+          sqrIntegralImg.at<int>(y - 1, x) + sqrIntegralImg.at<int>(y, x - 1) -
+          sqrIntegralImg.at<int>(y - 1, x - 1);
+      sqrIntegralImg.at<int>(y - 1, x - 1) = sqrSum;
+    }
+  }
 }
 }  // namespace imageprocessing
