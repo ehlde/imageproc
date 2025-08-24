@@ -131,6 +131,7 @@ cv::Mat niblackIntegral(const cv::Mat& paddedImg,
 
 cv::Mat adaptiveThresholding(const cv::Mat& img, const ThresholdType type)
 {
+  assert(false);  // NOT IMPLEMENTED
   const auto blockHeight = img.rows / 4;
   const auto halfBlockSize =
       blockHeight % 2 == 0 ? (blockHeight - 1) / 2 : blockHeight / 2;
@@ -144,5 +145,6 @@ cv::Mat adaptiveThresholding(const cv::Mat& img, const ThresholdType type)
     case ThresholdType::OPENCV_GAUSSIAN:
       break;
   }
+  return cv::Mat{};
 }
 }  // namespace thresholding

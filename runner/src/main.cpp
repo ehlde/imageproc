@@ -7,8 +7,12 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/photo.hpp>
 #include <opencv2/videoio.hpp>
+#include <span>
+#include <string_view>
+#include <unordered_set>
 #include <vector>
 
+#include "imageprocessing/connected_components.hpp"
 #include "imageprocessing/contrasting.hpp"
 #include "imageprocessing/highlights.hpp"
 #include "imageprocessing/reflection_removal.hpp"
@@ -16,8 +20,6 @@
 
 using Images = std::vector<cv::Mat>;
 using ImagePairs = std::vector<std::pair<cv::Mat, cv::Mat>>;
-
-// #define BENCHMARK_ENABLED
 
 namespace
 {
@@ -232,19 +234,98 @@ static void BM_NiblackIntegral(benchmark::State& state,
   }
 }
 
+static void BM_ConnectedEightSlow(benchmark::State& state,
+                                  const cv::Mat& testImg)
+{
+  for (auto _ : state)
+  {
+    benchmark::DoNotOptimize(imageprocessing::connectedEightSlow(testImg));
+  }
+}
+
+static void BM_ConnectedEightFaster(benchmark::State& state,
+                                    const cv::Mat& testImg)
+{
+  for (auto _ : state)
+  {
+    benchmark::DoNotOptimize(imageprocessing::connectedEightFaster(testImg));
+  }
+}
+
 void performAdaptiveThresholding(const Images& images) {}
+
+void performConnectedComponents(const Images& images)
+{
+  for (const auto& image : images)
+  {
+    const auto resultSlow = imageprocessing::connectedEightSlow(image);
+    const auto resultFaster = imageprocessing::connectedEightFaster(image);
+
+    auto maskSlow = cv::Mat{};
+    cv::threshold(resultSlow, maskSlow, 0, 255, cv::THRESH_BINARY);
+
+    auto maskFaster = cv::Mat{};
+    cv::threshold(resultFaster, maskFaster, 0, 255, cv::THRESH_BINARY);
+
+    // Compare the masks
+    cv::Mat maskComparison;
+    cv::compare(maskSlow, maskFaster, maskComparison, cv::CMP_EQ);
+    assert(cv::countNonZero(maskComparison) == maskComparison.total());
+
+    // Show all results concatenated.
+    cv::Mat allResults;
+    cv::hconcat(image, maskSlow, allResults);
+    cv::hconcat(allResults, maskFaster, allResults);
+    cv::imshow("All Results", allResults);
+
+    cv::waitKey(0);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
 {
-  if (argc != 3)
+  const auto args = std::span{argv, static_cast<size_t>(argc)};
+
+  // Expecting at least program name, folder path, and extension.
+  if (args.size() < 3)
   {
-    std::cerr << "Usage: " << argv[0] << " <folder_path> <extension>\n";
+    std::cout << "Usage: " << args[0]
+              << " <folder_path> <extension> [options...]" << std::endl;
+    std::cout << "Options:" << std::endl;
+    std::cout << "  --benchmark : Run performance benchmarks for selected "
+                 "algorithms that have benchmarks implemented."
+              << std::endl;
+    std::cout << "Algorithms:" << std::endl;
+    std::cout << "  --at  : Run adaptive thresholding." << std::endl;
+    std::cout << "  --cc  : Run connected components." << std::endl;
+    std::cout << "  --rr  : Run reflection removal." << std::endl;
+    std::cout << "  --ip  : Run inpainting on highlights." << std::endl;
+    std::cout << "  --ii  : Run integral image." << std::endl;
+    std::cout << "  --ac  : Run auto contrast." << std::endl;
+    std::cout << "--------------------------------------------" << std::endl;
+    std::cout << "  --h   : Show this help message." << std::endl;
     return 1;
   }
 
-  const auto folderPath = std::string(argv[1]);
-  const auto extension = std::string(argv[2]);
+  const auto folderPath = std::string{args[1]};
+  const auto extension = std::string{args[2]};
+
+  // Lambda to extract optional arguments into a hash set for fast lookups.
+  auto getOptionalArgsAsSet = [](const std::span<char*>& allArgs)
+      -> std::unordered_set<std::string_view>
+  {
+    if (allArgs.size() <= 3)
+    {
+      return {};
+    }
+    // Create a view of the optional arguments, skipping the first 3.
+    auto optionalArgsSpan = allArgs.subspan(3);
+    return {optionalArgsSpan.begin(), optionalArgsSpan.end()};
+  };
+
+  const auto optionalArgs = getOptionalArgsAsSet(args);
 
   auto files = std::vector<std::string>{};
   try
@@ -253,64 +334,98 @@ int main(int argc, char** argv)
   }
   catch (const std::filesystem::filesystem_error& e)
   {
-    std::cerr << "Error: " << e.what() << '\n';
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
+  }
+
+  if (files.empty())
+  {
+    std::cerr << "Error: No images with extension '" << extension
+              << "' found in folder '" << folderPath << "'." << std::endl;
     return 1;
   }
 
   const auto images = loadImages(files);
-  // const auto images = loadVideo(files[0], 10);
-
-  const auto result = performThresholding(images);
-  for (const auto& [naive, integral] : result)
+  if (images.empty())
   {
-#ifndef BENCHMARK_ENABLED
-    assert(!naive.empty() && !integral.empty() &&
-           naive.size() == integral.size());
-    auto combined = cv::Mat();
-    cv::hconcat(naive, integral, combined);
-    cv::imshow("Naive | Integral", combined);
-    cv::waitKey(0);
-#endif
+    std::cerr << "Error: Failed to load any images." << std::endl;
+    return 1;
   }
 
-#ifdef BENCHMARK_ENABLED
-  // BENCHMARKING
-  benchmark::Initialize(&argc, argv);
-  const auto& img = images[0];
+  if (optionalArgs.contains("--at"))
+  {
+    if (optionalArgs.contains("--benchmark"))
+    {
+      std::cout << "Running benchmarks..." << std::endl;
+      benchmark::Initialize(&argc, argv);
 
-  constexpr auto DEFAULT_INVERT = true;
-  const auto blockHeight = img.rows / 4;
-  const auto halfBlockSize =
-      blockHeight % 2 == 0 ? (blockHeight - 1) / 2 : blockHeight / 2;
-  const auto BORDER_REFLECT_VAL = halfBlockSize;
+      const auto& img = images[0];
 
-  auto paddedImg = cv::Mat(img.rows + 2 * BORDER_REFLECT_VAL,
-                           img.cols + 2 * BORDER_REFLECT_VAL,
-                           CV_8U);
-  cv::copyMakeBorder(img,
-                     paddedImg,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     BORDER_REFLECT_VAL,
-                     cv::BORDER_REFLECT_101);
+      constexpr auto DEFAULT_INVERT = true;
+      const auto blockHeight = img.rows / 4;
+      const auto halfBlockSize =
+          blockHeight % 2 == 0 ? (blockHeight - 1) / 2 : blockHeight / 2;
+      const auto BORDER_REFLECT_VAL = halfBlockSize;
 
-  // Register benchmarks with arguments.
-  benchmark::RegisterBenchmark("BM_NiblackNaive",
-                               BM_NiblackNaive,
-                               paddedImg,
-                               halfBlockSize,
-                               thresholding::NIBLACK_K,
-                               DEFAULT_INVERT);
-  benchmark::RegisterBenchmark("BM_NiblackIntegral",
-                               BM_NiblackIntegral,
-                               paddedImg,
-                               halfBlockSize,
-                               thresholding::NIBLACK_K,
-                               DEFAULT_INVERT);
+      auto paddedImg = cv::Mat{};
+      cv::copyMakeBorder(img,
+                         paddedImg,
+                         BORDER_REFLECT_VAL,
+                         BORDER_REFLECT_VAL,
+                         BORDER_REFLECT_VAL,
+                         BORDER_REFLECT_VAL,
+                         cv::BORDER_REFLECT_101);
 
-  benchmark::RunSpecifiedBenchmarks();
-  benchmark::Shutdown();
-#endif
+      benchmark::RegisterBenchmark("BM_NiblackNaive",
+                                   BM_NiblackNaive,
+                                   paddedImg,
+                                   halfBlockSize,
+                                   thresholding::NIBLACK_K,
+                                   DEFAULT_INVERT);
+      benchmark::RegisterBenchmark("BM_NiblackIntegral",
+                                   BM_NiblackIntegral,
+                                   paddedImg,
+                                   halfBlockSize,
+                                   thresholding::NIBLACK_K,
+                                   DEFAULT_INVERT);
+
+      benchmark::RunSpecifiedBenchmarks();
+      benchmark::Shutdown();
+    }
+    else
+    {
+      // Default behavior: visualize the results.
+      const auto result = performThresholding(images);
+      for (const auto& [naive, integral] : result)
+      {
+        assert(!naive.empty() && !integral.empty() &&
+               naive.size() == integral.size());
+        auto combined = cv::Mat{};
+        cv::hconcat(naive, integral, combined);
+        cv::imshow("Naive | Integral", combined);
+        cv::waitKey(0);
+      }
+    }
+  }
+
+  if (optionalArgs.contains("--cc"))
+  {
+    if (optionalArgs.contains("--benchmark"))
+    {
+      std::cout << "Running connected components benchmarks..." << std::endl;
+      benchmark::Initialize(&argc, argv);
+      benchmark::RegisterBenchmark(
+          "BM_ConnectedEightSlow", BM_ConnectedEightSlow, images[1]);
+      benchmark::RegisterBenchmark(
+          "BM_ConnectedEightFaster", BM_ConnectedEightFaster, images[1]);
+      benchmark::RunSpecifiedBenchmarks();
+      benchmark::Shutdown();
+    }
+    else
+    {
+      std::cout << "Running connected components..." << std::endl;
+      performConnectedComponents(images);
+    }
+  }
   return 0;
 }

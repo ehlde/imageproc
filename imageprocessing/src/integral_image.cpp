@@ -62,9 +62,9 @@ std::pair<cv::Mat, cv::Mat> integralImageTwoOrders(const cv::Mat& img)
   return {integralImg, sqrIntegralImg};
 }
 
-std::pair<cv::Mat, cv::Mat> imageprocessing::integralImageTwoOrders_SIMD(
-    const cv::Mat& img)
+std::pair<cv::Mat, cv::Mat> integralImageTwoOrders_SIMD(const cv::Mat& img)
 {
+  assert(false);  // NOT IMPLEMENTED.
   assert(img.type() == CV_8U &&
          "Input image must be of type CV_8U (single channel, 8-bit unsigned "
          "integer).");
@@ -93,5 +93,6 @@ std::pair<cv::Mat, cv::Mat> imageprocessing::integralImageTwoOrders_SIMD(
       sqrIntegralImg.at<int>(y - 1, x - 1) = sqrSum;
     }
   }
+  return {integralImg, sqrIntegralImg};
 }
 }  // namespace imageprocessing

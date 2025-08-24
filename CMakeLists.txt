@@ -13,3 +13,4 @@ project(imageproc)
 
 add_subdirectory(runner)
 add_subdirectory(imageprocessing)
+add_subdirectory(base)

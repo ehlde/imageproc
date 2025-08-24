@@ -61,7 +61,8 @@
       "environment": {
         "SHELL": "/bin/bash",
         "BASH_ENV": "/opt/intel/oneapi/2025.1/oneapi-vars.sh",
-        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+        "LD_LIBRARY_PATH": "/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH",
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {

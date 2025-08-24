@@ -11,6 +11,7 @@ set(SRC
   src/highlights.cpp
   src/reflection_removal.cpp
   src/integral_image.cpp
+  src/connected_components.cpp
 )
 
 add_library(imageprocessing STATIC
@@ -23,8 +24,10 @@ target_include_directories(imageprocessing
   PRIVATE
     ${OpenCV_INCLUDE_DIRS}
     ${IPP_INCLUDE_DIRS}
+    base
 )
 
 target_link_libraries(imageprocessing PRIVATE
   ${OpenCV_LIBS}
+  base
 )
