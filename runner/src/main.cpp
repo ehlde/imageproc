@@ -19,7 +19,7 @@
 #include "imageprocessing/thresholding.hpp"
 
 using Images = std::vector<cv::Mat>;
-using ImagePairs = std::vector<std::pair<cv::Mat, cv::Mat>>;
+using ImageTriplets = std::vector<std::tuple<cv::Mat, cv::Mat, cv::Mat>>;
 
 namespace
 {
@@ -80,18 +80,20 @@ auto loadVideo(const std::string& filePath, const int frameCount = 0) -> Images
   return images;
 }
 
-auto performThresholding(const Images& images) -> ImagePairs
+auto performThresholding(const Images& images) -> ImageTriplets
 {
-  auto results = ImagePairs{};
+  auto results = ImageTriplets{};
   constexpr auto BLOCK_SIZE = 15;
   constexpr auto K = -0.17;
+  constexpr auto INVERT = false;
   for (const auto& image : images)
   {
-    const auto naive = thresholding::adaptiveThresholding(
-        image, thresholding::ThresholdType::NIBLACK_NAIVE);
-    const auto integral = thresholding::adaptiveThresholding(
-        image, thresholding::ThresholdType::NIBLACK_INTEGRAL);
-    results.push_back({naive, integral});
+    const auto naive = thresholding::niblackNaive(image, BLOCK_SIZE, K, INVERT);
+    const auto integral =
+        thresholding::niblackIntegral(image, BLOCK_SIZE, K, INVERT);
+    const auto integralSIMD =
+        thresholding::niblackIntegralSIMD(image, BLOCK_SIZE, K, INVERT);
+    results.emplace_back(naive, integral, integralSIMD);
   }
   return results;
 }
@@ -230,6 +232,20 @@ static void BM_NiblackIntegral(benchmark::State& state,
   for (auto _ : state)
   {
     benchmark::DoNotOptimize(thresholding::niblackIntegral(
+        paddedImg, halfBlockSize, kValue, invert));
+  }
+}
+
+static void BM_NiblackIntegralSIMD(benchmark::State& state,
+                                   const cv::Mat& paddedImg,
+                                   const int halfBlockSize,
+                                   const double kValue,
+                                   const bool invert)
+{
+  // Benchmark NiblackIntegralSIMD function.
+  for (auto _ : state)
+  {
+    benchmark::DoNotOptimize(thresholding::niblackIntegralSIMD(
         paddedImg, halfBlockSize, kValue, invert));
   }
 }
@@ -388,6 +404,12 @@ int main(int argc, char** argv)
                                    halfBlockSize,
                                    thresholding::NIBLACK_K,
                                    DEFAULT_INVERT);
+      benchmark::RegisterBenchmark("BM_NiblackIntegralSIMD",
+                                   BM_NiblackIntegralSIMD,
+                                   paddedImg,
+                                   halfBlockSize,
+                                   thresholding::NIBLACK_K,
+                                   DEFAULT_INVERT);
 
       benchmark::RunSpecifiedBenchmarks();
       benchmark::Shutdown();
@@ -396,13 +418,16 @@ int main(int argc, char** argv)
     {
       // Default behavior: visualize the results.
       const auto result = performThresholding(images);
-      for (const auto& [naive, integral] : result)
+      for (const auto& [naive, integral, integralSIMD] : result)
       {
-        assert(!naive.empty() && !integral.empty() &&
-               naive.size() == integral.size());
+        assert(!naive.empty() && !integral.empty() && !integralSIMD.empty() &&
+               naive.size() == integral.size() &&
+               naive.size() == integralSIMD.size());
         auto combined = cv::Mat{};
+        auto combinedSIMD = cv::Mat{};
         cv::hconcat(naive, integral, combined);
-        cv::imshow("Naive | Integral", combined);
+        cv::hconcat(combined, integralSIMD, combinedSIMD);
+        cv::imshow("Naive | Integral | Integral SIMD", combinedSIMD);
         cv::waitKey(0);
       }
     }

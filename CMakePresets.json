@@ -18,7 +18,9 @@
         "IPP_ROOT": "/opt/intel/oneapi/2025.2",
         "OpenCV_DIR": "/usr/local/opencv/build",
         "CMAKE_GENERATOR": "Ninja Multi-Config",
-        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native"
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -mavx2 -march=native",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g -mavx2",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g -mavx2"
       }
     },
     {

@@ -28,4 +28,9 @@ cv::Mat niblackIntegral(const cv::Mat& paddedImg,
                         const int blockSize,
                         const double k,
                         const bool invert = false);
+
+cv::Mat niblackIntegralSIMD(const cv::Mat& paddedImg,
+                            const int blockSize,
+                            const double k,
+                            const bool invert = false);
 }  // namespace thresholding
