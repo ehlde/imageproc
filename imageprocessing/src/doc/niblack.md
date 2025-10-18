@@ -12,5 +12,3 @@ variance  = sqrSum/area - (sum/area)²
 
 T  = sum/area + k * sqrt(sqrSum / area - (sum / area)²)
 
-## Avoiding square root
-TODO - see notepad.

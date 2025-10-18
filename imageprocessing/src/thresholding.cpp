@@ -33,55 +33,7 @@ auto calculateOptimalC(const cv::Mat& img) -> double
   return std::clamp(optimal_c, 2.0, 50.0);
 }
 
-/**
- * @brief Creates a cv::Mat with its data buffer aligned to a specified byte
- * boundary.
- *
- * @param rows The number of rows for the new matrix.
- * @param cols The number of columns for the new matrix.
- * @param type The type of the matrix (e.g., CV_8U, CV_32S).
- * @param alignment The desired byte alignment (e.g., 16, 32, 64). Must be a
- * power of two.
- * @return A cv::Mat whose data pointer is aligned.
- */
-auto createAlignedMat(const int rows,
-                      const int cols,
-                      const int type,
-                      const int alignment) -> cv::Mat
-{
-  CV_Assert(alignment > 0 && (alignment & (alignment - 1)) == 0);
 
-  const auto elemSize = CV_ELEM_SIZE(type);
-  const auto rowSize = cols * elemSize;
-
-  // Calculate aligned step
-  const auto alignedStep = ((rowSize + alignment - 1) / alignment) * alignment;
-
-  // Allocate extra bytes for alignment
-  const auto totalSize = alignedStep * rows + alignment - 1;
-  auto buffer = std::vector<uchar>(totalSize);
-
-  // Find aligned address
-  const auto bufferAddr = reinterpret_cast<uintptr_t>(buffer.data());
-  const auto alignedAddr =
-      (bufferAddr + alignment - 1) & ~(static_cast<uintptr_t>(alignment) - 1);
-  auto* alignedPtr = reinterpret_cast<uchar*>(alignedAddr);
-
-  // Create matrix with aligned data
-  // Note: We need to keep the buffer alive, so we'll use a different approach
-  auto result = cv::Mat(rows, cols, type);
-
-  // Verify alignment of OpenCV's allocation
-  if (reinterpret_cast<uintptr_t>(result.data) % alignment == 0 &&
-      result.isContinuous())
-  {
-    return result;
-  }
-
-  // Backup: return the regular matrix as OpenCV's allocator
-  // typically provides reasonable alignment for AVX operations
-  return result;
-}
 }  // namespace
 
 cv::Mat niblackNaive(const cv::Mat& paddedImg,
@@ -90,7 +42,7 @@ cv::Mat niblackNaive(const cv::Mat& paddedImg,
                      const bool invert)
 {
   // Niblack thresholding with naive implementation.
-  assert(halfBlockSize % 2 == 1 && halfBlockSize > 0);
+  assert(halfBlockSize > 0);
   const auto blockSize = halfBlockSize * 2;
 
   auto result = cv::Mat(paddedImg.size(), CV_8U, cv::Scalar(0));
@@ -131,7 +83,7 @@ cv::Mat niblackIntegral(const cv::Mat& paddedImg,
                         const bool invert)
 {
   // Niblack thresholding with integral image.
-  assert(halfBlockSize % 2 == 1 && halfBlockSize > 0);
+  assert(halfBlockSize > 0);
   const auto blockSize = halfBlockSize * 2;
   const auto area = blockSize * blockSize;
 
@@ -188,7 +140,7 @@ cv::Mat niblackIntegralSIMD(const cv::Mat& paddedImg,
                             const double k,
                             const bool invert)
 {
-  assert(halfBlockSize % 2 == 1 && halfBlockSize > 0);
+  assert(halfBlockSize > 0);
 
   const auto blockSize = halfBlockSize * 2;
   const auto area = blockSize * blockSize;
@@ -274,21 +226,23 @@ cv::Mat niblackIntegralSIMD(const cv::Mat& paddedImg,
 
       const auto sqrSumOverArea = _mm256_div_ps(sqrSumFloat, areaVec);
       const auto sqrMean = _mm256_mul_ps(mean, mean);
-      const auto variance = _mm256_sub_ps(sqrSumOverArea, sqrMean);
+      auto variance = _mm256_sub_ps(sqrSumOverArea, sqrMean);
+      variance = _mm256_max_ps(_mm256_setzero_ps(), variance);
       const auto stddev = _mm256_sqrt_ps(variance);
       // T = mean + k * stddev
       const auto kStdDev = _mm256_mul_ps(kVec, stddev);
-      const auto rhs = _mm256_add_ps(mean, kStdDev);
-      const auto threshold = _mm256_cvttps_epi32(rhs);
+      const auto threshold = _mm256_add_ps(mean, kStdDev);
 
       // Load 8 bytes (8 pixels) from the pixel row
       const auto pixelChunk =
           _mm_loadu_si64(reinterpret_cast<const void*>(&pixelRow[x]));
       // Convert to epi32
       const auto pixelVecEpi32 = _mm256_cvtepu8_epi32(pixelChunk);
+      const auto pixelVecFloat = _mm256_cvtepi32_ps(pixelVecEpi32);
 
-      const auto mask = invert ? _mm256_cmpgt_epi32(threshold, pixelVecEpi32)
-                               : _mm256_cmpgt_epi32(pixelVecEpi32, threshold);
+      const auto mask =
+          invert ? _mm256_cmp_ps(threshold, pixelVecFloat, _CMP_GT_OQ)
+                 : _mm256_cmp_ps(pixelVecFloat, threshold, _CMP_GT_OQ);
       const auto resVec = _mm256_blendv_epi8(minVec, maxVec, mask);
 
       const auto packed16 = _mm256_packs_epi32(resVec, resVec);
@@ -335,7 +289,11 @@ cv::Mat niblackIntegralSIMD(const cv::Mat& paddedImg,
 
 cv::Mat adaptiveThresholding(const cv::Mat& img, const ThresholdType type)
 {
-  const auto blockHeight = img.rows / 4;
+  auto blockHeight = img.rows / 4;
+  if (blockHeight % 2 == 0)
+  {
+    ++blockHeight;
+  }
   const auto halfBlockSize = (blockHeight - 1) / 2;
   const auto BORDER_REFLECT_VAL = halfBlockSize;
 
